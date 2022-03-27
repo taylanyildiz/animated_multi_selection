@@ -27,9 +27,11 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
   late AnimationController detailController;
   late Animation<double> detailAnim;
   double get detailValue => detailAnim.value;
+  late AnimationController opacityController;
 
   int selectedIndex = -1;
   int incrementIndex = 0;
+  bool opacity = false;
 
   Matrix4 identity(int index) {
     final width = MediaQuery.of(context).size.width;
@@ -96,6 +98,12 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
       curve: Curves.easeIn,
     ));
 
+    opacityController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 100),
+    )..addListener(_update);
+
     super.initState();
   }
 
@@ -121,6 +129,7 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
         animation: detailController,
         index: incrementIndex,
         animation1: selectController,
+        opacity: selectedIndex != -1,
         onClear: () async {
           incrementIndex = 0;
           setState(() {});
@@ -139,6 +148,8 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
           setState(() => incrementIndex++);
           incrementController.forward();
         },
+        opacity: selectedIndex != -1,
+        update: opacityController.value,
         onBack: () async => await detailController.reverse(),
       ),
       CategoriesScreen(
@@ -152,11 +163,18 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
           selectedIndex = -1;
           setState(() {});
         },
-        onSelect: (index) {
+        onSelect: (index) async {
+          if (selectedIndex == index) return;
           setState(() {
             selectedIndex = index;
+            opacity = true;
           });
+          await opacityController.reverse();
+          opacityController.forward();
           selectController.forward();
+          if (incrementIndex != 0) {
+            incrementController.forward();
+          }
         },
         selectedIndex: selectedIndex,
       ),
@@ -350,6 +368,8 @@ class CategoryScreen extends AnimatedWidget {
     required this.endOffset,
     required this.onSelect,
     required this.onBack,
+    required this.opacity,
+    required this.update,
   }) : super(key: key, listenable: animation);
 
   final Animation animation;
@@ -357,6 +377,8 @@ class CategoryScreen extends AnimatedWidget {
   final double endOffset;
   final Function(int index) onSelect;
   final Function() onBack;
+  final bool opacity;
+  final double update;
 
   double get value => animation.value;
 
@@ -369,11 +391,33 @@ class CategoryScreen extends AnimatedWidget {
       child: Scaffold(
         backgroundColor: const Color(0xff4573c8),
         appBar: _buildAppBar,
-        body: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 10.0),
-          itemCount: 20,
-          separatorBuilder: (context, index) => const SizedBox(height: 30.0),
-          itemBuilder: (context, index) => _buildBody(index),
+        body: TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 300),
+          tween: update == 1
+              ? Tween<double>(begin: 0.0, end: 1.0)
+              : Tween<double>(begin: 1.0, end: 0.0),
+          builder: (context, value, child) {
+            return Opacity(
+              opacity: value as double,
+              child: child,
+            );
+          },
+          child: TweenAnimationBuilder(
+            duration: const Duration(milliseconds: 300),
+            tween: opacity
+                ? Tween<double>(begin: 0.0, end: 1.0)
+                : Tween<double>(begin: 1.0, end: 0.0),
+            builder: (context, value, child) {
+              return Opacity(opacity: value as double, child: child);
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 10.0),
+              itemCount: 20,
+              separatorBuilder: (context, index) =>
+                  const SizedBox(height: 30.0),
+              itemBuilder: (context, index) => _buildBody(index),
+            ),
+          ),
         ),
       ),
     );
@@ -506,6 +550,7 @@ class SelectedScreen extends AnimatedWidget {
     required this.animation1,
     required this.offset,
     required this.onClear,
+    required this.opacity,
     this.index = 0,
   }) : super(key: key, listenable: animation);
 
@@ -513,6 +558,7 @@ class SelectedScreen extends AnimatedWidget {
   final double offset;
   final Animation animation;
   final Animation animation1;
+  final bool opacity;
   final Function() onClear;
 
   double get value => animation.value;
@@ -524,45 +570,54 @@ class SelectedScreen extends AnimatedWidget {
       child: Scaffold(
         backgroundColor: const Color(0xff253659),
         appBar: _buildAppBar,
-        body: Stack(
-          children: [
-            if (index == 0) ...[
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..translate(-40.0 + 35 * animation1.value),
-                    child: const Align(
-                      alignment: Alignment.centerRight,
-                      child: RotatedBox(
-                        quarterTurns: 3,
-                        child: Text(
-                          'CART IS EMPTY',
-                          style: TextStyle(
-                            fontSize: 20.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white30,
+        body: TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 300),
+          tween: opacity
+              ? Tween<double>(begin: 0.0, end: 1.0)
+              : Tween<double>(begin: 1.0, end: 0.0),
+          builder: (context, value, child) {
+            return Opacity(opacity: value as double, child: child);
+          },
+          child: Stack(
+            children: [
+              if (index == 0) ...[
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..translate(-40.0 + 35 * animation1.value),
+                      child: const Align(
+                        alignment: Alignment.centerRight,
+                        child: RotatedBox(
+                          quarterTurns: 3,
+                          child: Text(
+                            'CART IS EMPTY',
+                            style: TextStyle(
+                              fontSize: 20.0,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white30,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  )
-                ],
-              ),
+                    )
+                  ],
+                ),
+              ],
+              if (index != 0) ...[
+                ListView.separated(
+                  itemCount: index,
+                  shrinkWrap: true,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 0.0),
+                  itemBuilder: (context, index) => _buildBody(index),
+                  padding: const EdgeInsets.symmetric(vertical: 10.0),
+                )
+              ]
             ],
-            if (index != 0) ...[
-              ListView.separated(
-                itemCount: index,
-                shrinkWrap: true,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 0.0),
-                itemBuilder: (context, index) => _buildBody(index),
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-              )
-            ]
-          ],
+          ),
         ),
         floatingActionButton: _floatingActionButton,
       ),
@@ -621,9 +676,9 @@ class SelectedScreen extends AnimatedWidget {
               Transform(
                 alignment: Alignment.topCenter,
                 transform: Matrix4.identity()
-                  ..scale(value)
-                  ..translate(0.0, 180.0 * Curves.easeIn.transform(value)),
-                child: _buildBottomButton(value),
+                  ..scale(snapshot as double)
+                  ..translate(0.0, 180.0 * Curves.easeIn.transform(snapshot)),
+                child: _buildBottomButton(snapshot),
               ),
               Transform(
                 alignment: Alignment.topCenter,
@@ -709,7 +764,7 @@ class SelectedScreen extends AnimatedWidget {
                   child: Text('BUY for'),
                 ),
               ),
-              Text('\$300'),
+              Text('\$${10 * index}'),
             ],
           ),
         ],
