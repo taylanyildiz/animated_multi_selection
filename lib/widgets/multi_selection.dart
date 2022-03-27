@@ -121,6 +121,11 @@ class _Multi extends State<MultiSelection> with TickerProviderStateMixin {
         animation: detailController,
         index: incrementIndex,
         animation1: selectController,
+        onClear: () async {
+          incrementIndex = 0;
+          setState(() {});
+          await detailController.reverse();
+        },
       ),
       CategoryScreen(
         animation: detailController,
@@ -500,6 +505,7 @@ class SelectedScreen extends AnimatedWidget {
     required this.animation,
     required this.animation1,
     required this.offset,
+    required this.onClear,
     this.index = 0,
   }) : super(key: key, listenable: animation);
 
@@ -507,6 +513,7 @@ class SelectedScreen extends AnimatedWidget {
   final double offset;
   final Animation animation;
   final Animation animation1;
+  final Function() onClear;
 
   double get value => animation.value;
 
@@ -547,7 +554,8 @@ class SelectedScreen extends AnimatedWidget {
             ],
             if (index != 0) ...[
               ListView.separated(
-                itemCount: 20,
+                itemCount: index,
+                shrinkWrap: true,
                 separatorBuilder: (context, index) =>
                     const SizedBox(height: 0.0),
                 itemBuilder: (context, index) => _buildBody(index),
@@ -556,6 +564,7 @@ class SelectedScreen extends AnimatedWidget {
             ]
           ],
         ),
+        floatingActionButton: _floatingActionButton,
       ),
     );
   }
@@ -582,7 +591,7 @@ class SelectedScreen extends AnimatedWidget {
           child: Opacity(
             opacity: value,
             child: IconButton(
-              onPressed: () {},
+              onPressed: onClear,
               icon: const Icon(Icons.close),
               color: Colors.red,
               iconSize: 30.0,
@@ -670,6 +679,39 @@ class SelectedScreen extends AnimatedWidget {
               iconSize: 24.0,
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  get _floatingActionButton {
+    return FloatingActionButton.extended(
+      onPressed: () {},
+      label: Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: 1 - value,
+            child: const Text(
+              '\$',
+              style: TextStyle(
+                color: Colors.white30,
+                fontSize: 30.0,
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Visibility(
+                visible: value != 0,
+                child: Opacity(
+                  opacity: value,
+                  child: Text('BUY for'),
+                ),
+              ),
+              Text('\$300'),
+            ],
+          ),
         ],
       ),
     );
