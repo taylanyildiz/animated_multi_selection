@@ -267,6 +267,7 @@ class CategoriesScreen extends AnimatedWidget {
   AppBar get _buildAppBar {
     return AppBar(
       backgroundColor: const Color(0xffe2605b),
+      centerTitle: true,
       title: Opacity(
         opacity: Curves.easeInCirc.transform(1.0 - value),
         child: const Text(
